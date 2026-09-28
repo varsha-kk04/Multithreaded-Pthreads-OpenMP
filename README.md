@@ -61,6 +61,33 @@ and wait for it using `pthread_join()`.
 
 **Source file:** `thread1.c`
 
+### Source Code
+
+```c
+#include <stdio.h>
+#include <pthread.h>
+
+void *thread_function(void *arg)
+{
+    printf("Hello from the thread!\n");
+    return NULL;
+}
+
+int main()
+{
+    pthread_t thread;
+
+    pthread_create(&thread, NULL, thread_function, NULL);
+
+    pthread_join(thread, NULL);
+
+    printf("Main thread finished.\n");
+
+    return 0;
+}
+```
+
+
 ### Compilation
 
 ``` bash
@@ -91,6 +118,50 @@ Main thread finished.
 Create and manage multiple threads using Pthreads.
 
 **Source file:** `thread2.c`
+
+### Source Code
+
+```c
+#include <stdio.h>
+#include <pthread.h>
+
+void *thread_function(void *arg)
+{
+    int thread_id = *(int *)arg;
+
+    printf("Hello from Thread %d\n", thread_id);
+
+    return NULL;
+}
+
+int main()
+{
+    pthread_t threads[4];
+    int thread_ids[4];
+
+    for (int i = 0; i < 4; i++)
+    {
+        thread_ids[i] = i + 1;
+
+        pthread_create(
+            &threads[i],
+            NULL,
+            thread_function,
+            &thread_ids[i]
+        );
+    }
+
+    for (int i = 0; i < 4; i++)
+    {
+        pthread_join(threads[i], NULL);
+    }
+
+    printf("All threads have finished.\n");
+
+    return 0;
+}
+```
+
 
 ### Compilation
 
@@ -130,6 +201,74 @@ different thread.
 
 **Source file:** `thread_sum.c`
 
+### Source Code
+
+```c
+#include <stdio.h>
+#include <pthread.h>
+
+#define NUM_THREADS 4
+#define ARRAY_SIZE 8
+
+int array[ARRAY_SIZE] = {10, 20, 30, 40, 50, 60, 70, 80};
+int partial_sum[NUM_THREADS];
+
+void *calculate_sum(void *arg)
+{
+    int thread_id = *(int *)arg;
+    int start = thread_id * (ARRAY_SIZE / NUM_THREADS);
+    int end = start + (ARRAY_SIZE / NUM_THREADS);
+
+    partial_sum[thread_id] = 0;
+
+    for (int i = start; i < end; i++)
+    {
+        partial_sum[thread_id] += array[i];
+    }
+
+    printf("Thread %d calculated sum = %d\n",
+           thread_id + 1,
+           partial_sum[thread_id]);
+
+    return NULL;
+}
+
+int main()
+{
+    pthread_t threads[NUM_THREADS];
+    int thread_ids[NUM_THREADS];
+
+    for (int i = 0; i < NUM_THREADS; i++)
+    {
+        thread_ids[i] = i;
+
+        pthread_create(
+            &threads[i],
+            NULL,
+            calculate_sum,
+            &thread_ids[i]
+        );
+    }
+
+    for (int i = 0; i < NUM_THREADS; i++)
+    {
+        pthread_join(threads[i], NULL);
+    }
+
+    int total_sum = 0;
+
+    for (int i = 0; i < NUM_THREADS; i++)
+    {
+        total_sum += partial_sum[i];
+    }
+
+    printf("Total sum = %d\n", total_sum);
+
+    return 0;
+}
+```
+
+
 ### Compilation
 
 ``` bash
@@ -168,6 +307,54 @@ synchronization can produce an incorrect result.
 
 **Source file:** `race.c`
 
+### Source Code
+
+```c
+#include <stdio.h>
+#include <pthread.h>
+
+#define NUM_THREADS 4
+#define INCREMENTS 100000
+
+int counter = 0;
+
+void *increment_counter(void *arg)
+{
+    for (int i = 0; i < INCREMENTS; i++)
+    {
+        counter++;
+    }
+
+    return NULL;
+}
+
+int main()
+{
+    pthread_t threads[NUM_THREADS];
+
+    for (int i = 0; i < NUM_THREADS; i++)
+    {
+        pthread_create(
+            &threads[i],
+            NULL,
+            increment_counter,
+            NULL
+        );
+    }
+
+    for (int i = 0; i < NUM_THREADS; i++)
+    {
+        pthread_join(threads[i], NULL);
+    }
+
+    printf("Expected counter = %d\n", NUM_THREADS * INCREMENTS);
+    printf("Actual counter = %d\n", counter);
+
+    return 0;
+}
+```
+
+
 ### Compilation
 
 ``` bash
@@ -202,6 +389,63 @@ Protect the shared counter using a Pthreads mutex.
 
 **Source file:** `mutex.c`
 
+### Source Code
+
+```c
+#include <stdio.h>
+#include <pthread.h>
+
+#define NUM_THREADS 4
+#define INCREMENTS 100000
+
+int counter = 0;
+pthread_mutex_t mutex;
+
+void *increment_counter(void *arg)
+{
+    for (int i = 0; i < INCREMENTS; i++)
+    {
+        pthread_mutex_lock(&mutex);
+
+        counter++;
+
+        pthread_mutex_unlock(&mutex);
+    }
+
+    return NULL;
+}
+
+int main()
+{
+    pthread_t threads[NUM_THREADS];
+
+    pthread_mutex_init(&mutex, NULL);
+
+    for (int i = 0; i < NUM_THREADS; i++)
+    {
+        pthread_create(
+            &threads[i],
+            NULL,
+            increment_counter,
+            NULL
+        );
+    }
+
+    for (int i = 0; i < NUM_THREADS; i++)
+    {
+        pthread_join(threads[i], NULL);
+    }
+
+    pthread_mutex_destroy(&mutex);
+
+    printf("Expected counter = %d\n", NUM_THREADS * INCREMENTS);
+    printf("Actual counter = %d\n", counter);
+
+    return 0;
+}
+```
+
+
 ### Compilation
 
 ``` bash
@@ -235,6 +479,107 @@ counter update.
 Measure execution time using different numbers of Pthreads.
 
 **Source file:** `pthread_perf.c`
+
+### Source Code
+
+```c
+#include <stdio.h>
+#include <pthread.h>
+#include <time.h>
+
+#define N 1000000000L
+
+double partial_sum[32];
+
+typedef struct
+{
+    int thread_id;
+    long start;
+    long end;
+} ThreadData;
+
+double get_time()
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec + ts.tv_nsec / 1e9;
+}
+
+void *calculate(void *arg)
+{
+    ThreadData *data = (ThreadData *)arg;
+    double sum = 0.0;
+
+    for (long i = data->start; i < data->end; i++)
+    {
+        sum += (double)i * 0.000001;
+    }
+
+    partial_sum[data->thread_id] = sum;
+
+    return NULL;
+}
+
+int main()
+{
+    int num_threads;
+
+    printf("Enter number of threads: ");
+    scanf("%d", &num_threads);
+
+    if (num_threads < 1 || num_threads > 32)
+    {
+        printf("Please enter a value between 1 and 32.\n");
+        return 1;
+    }
+
+    pthread_t threads[num_threads];
+    ThreadData data[num_threads];
+
+    long chunk = N / num_threads;
+
+    double start_time = get_time();
+
+    for (int i = 0; i < num_threads; i++)
+    {
+        data[i].thread_id = i;
+        data[i].start = i * chunk;
+
+        if (i == num_threads - 1)
+            data[i].end = N;
+        else
+            data[i].end = (i + 1) * chunk;
+
+        pthread_create(
+            &threads[i],
+            NULL,
+            calculate,
+            &data[i]
+        );
+    }
+
+    for (int i = 0; i < num_threads; i++)
+    {
+        pthread_join(threads[i], NULL);
+    }
+
+    double total_sum = 0.0;
+
+    for (int i = 0; i < num_threads; i++)
+    {
+        total_sum += partial_sum[i];
+    }
+
+    double end_time = get_time();
+
+    printf("Result = %.2f\n", total_sum);
+    printf("Execution time = %.6f seconds\n",
+           end_time - start_time);
+
+    return 0;
+}
+```
+
 
 ### Compilation
 
@@ -277,6 +622,29 @@ Create an OpenMP parallel region and identify each thread.
 
 **Source file:** `omp1.c`
 
+### Source Code
+
+```c
+#include <stdio.h>
+#include <omp.h>
+
+int main()
+{
+    #pragma omp parallel
+    {
+        int thread_id = omp_get_thread_num();
+        int total_threads = omp_get_num_threads();
+
+        printf("Hello from Thread %d of %d\n",
+               thread_id,
+               total_threads);
+    }
+
+    return 0;
+}
+```
+
+
 ### Compilation
 
 ``` bash
@@ -305,6 +673,40 @@ Distribute array elements among OpenMP threads and combine the partial
 results using reduction.
 
 **Source file:** `omp_sum.c`
+
+### Source Code
+
+```c
+#include <stdio.h>
+#include <omp.h>
+
+#define ARRAY_SIZE 8
+
+int array[ARRAY_SIZE] = {10, 20, 30, 40, 50, 60, 70, 80};
+
+int main()
+{
+    int total_sum = 0;
+
+    #pragma omp parallel for reduction(+:total_sum)
+    for (int i = 0; i < ARRAY_SIZE; i++)
+    {
+        int thread_id = omp_get_thread_num();
+
+        printf("Thread %d processing array[%d] = %d\n",
+               thread_id,
+               i,
+               array[i]);
+
+        total_sum += array[i];
+    }
+
+    printf("Total sum = %d\n", total_sum);
+
+    return 0;
+}
+```
+
 
 ### Compilation
 
@@ -345,6 +747,37 @@ data without synchronization.
 
 **Source file:** `omp_race.c`
 
+### Source Code
+
+```c
+#include <stdio.h>
+#include <omp.h>
+
+#define NUM_THREADS 4
+#define INCREMENTS 100000
+
+int counter = 0;
+
+int main()
+{
+    omp_set_num_threads(NUM_THREADS);
+
+    #pragma omp parallel
+    {
+        for (int i = 0; i < INCREMENTS; i++)
+        {
+            counter++;
+        }
+    }
+
+    printf("Expected counter = %d\n", NUM_THREADS * INCREMENTS);
+    printf("Actual counter = %d\n", counter);
+
+    return 0;
+}
+```
+
+
 ### Compilation
 
 ``` bash
@@ -376,6 +809,40 @@ Protect the shared counter using an OpenMP critical section.
 
 **Source file:** `omp_critical.c`
 
+### Source Code
+
+```c
+#include <stdio.h>
+#include <omp.h>
+
+#define NUM_THREADS 4
+#define INCREMENTS 100000
+
+int counter = 0;
+
+int main()
+{
+    omp_set_num_threads(NUM_THREADS);
+
+    #pragma omp parallel
+    {
+        for (int i = 0; i < INCREMENTS; i++)
+        {
+            #pragma omp critical
+            {
+                counter++;
+            }
+        }
+    }
+
+    printf("Expected counter = %d\n", NUM_THREADS * INCREMENTS);
+    printf("Actual counter = %d\n", counter);
+
+    return 0;
+}
+```
+
+
 ### Compilation
 
 ``` bash
@@ -406,6 +873,32 @@ Actual counter = 400000
 Demonstrate synchronization between threads using an OpenMP barrier.
 
 **Source file:** `omp_barrier.c`
+
+### Source Code
+
+```c
+#include <stdio.h>
+#include <omp.h>
+
+int main()
+{
+    omp_set_num_threads(4);
+
+    #pragma omp parallel
+    {
+        int thread_id = omp_get_thread_num();
+
+        printf("Thread %d completed Stage 1\n", thread_id);
+
+        #pragma omp barrier
+
+        printf("Thread %d started Stage 2\n", thread_id);
+    }
+
+    return 0;
+}
+```
+
 
 ### Compilation
 
@@ -447,6 +940,56 @@ Measure execution time using different numbers of OpenMP threads.
 
 **Source file:** `omp_perf.c`
 
+### Source Code
+
+```c
+#include <stdio.h>
+#include <omp.h>
+#include <time.h>
+
+#define N 1000000000L
+
+double get_time()
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec + ts.tv_nsec / 1e9;
+}
+
+int main()
+{
+    double sum = 0.0;
+    int num_threads;
+
+    printf("Enter number of threads: ");
+    scanf("%d", &num_threads);
+
+    if (num_threads < 1 || num_threads > 32)
+    {
+        printf("Please enter a value between 1 and 32.\n");
+        return 1;
+    }
+
+    omp_set_num_threads(num_threads);
+
+    double start_time = get_time();
+
+    #pragma omp parallel for reduction(+:sum)
+    for (long i = 0; i < N; i++)
+    {
+        sum += (double)i * 0.000001;
+    }
+
+    double end_time = get_time();
+
+    printf("Result = %.2f\n", sum);
+    printf("Execution time = %.6f seconds\n", end_time - start_time);
+
+    return 0;
+}
+```
+
+
 ### Compilation
 
 ``` bash
@@ -485,6 +1028,41 @@ The sequential program is used as the baseline for speedup and
 efficiency calculations.
 
 **Source file:** `sequential.c`
+
+### Source Code
+
+```c
+#include <stdio.h>
+#include <time.h>
+
+#define N 1000000000L
+
+double get_time()
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec + ts.tv_nsec / 1e9;
+}
+
+int main()
+{
+    double sum = 0.0;
+    double start = get_time();
+
+    for (long i = 0; i < N; i++)
+    {
+        sum += (double)i * 0.000001;
+    }
+
+    double end = get_time();
+
+    printf("Result = %.2f\n", sum);
+    printf("Execution time = %.6f seconds\n", end - start);
+
+    return 0;
+}
+```
+
 
 ### Compilation
 
